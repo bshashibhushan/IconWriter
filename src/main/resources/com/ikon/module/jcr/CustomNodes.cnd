@@ -1,0 +1,78 @@
+<nt = 'http://www.jcp.org/jcr/nt/1.0'>
+<jcr = 'http://www.jcp.org/jcr/1.0'>
+<mix = 'http://www.jcp.org/jcr/mix/1.0'>
+<tShare = 'http://www.tShare.org/1.0'>
+
+[mix:accessControlled] mixin
+- tShare:authUsersRead (string) multiple
+- tShare:authUsersWrite (string) multiple
+- tShare:authUsersDelete (string) multiple
+- tShare:authUsersSecurity (string) multiple
+- tShare:authRolesRead (string) multiple
+- tShare:authRolesWrite (string) multiple
+- tShare:authRolesDelete (string) multiple
+- tShare:authRolesSecurity (string) multiple
+
+[mix:notification] mixin
+- tShare:subscriptors (string) = '' multiple autocreated
+
+[mix:scripting] mixin
+- tShare:scriptCode (string)
+
+[mix:encryption] mixin
+- tShare:cipherName (string)
+
+[tShare:resource] > nt:resource, mix:versionable
+- tShare:size (long)
+- tShare:author (string)
+- tShare:text (string)
+- tShare:versionComment (string) copy
+
+[tShare:note]
+- tShare:user (string)
+- tShare:date (date)
+- tShare:text (string)
+
+[tShare:notes] > nt:hierarchyNode
++ * (tShare:note)
+
+[mix:notes] mixin
++ tShare:notes (tShare:notes) = tShare:notes autocreated
+
+[tShare:document] > nt:hierarchyNode, mix:referenceable, mix:lockable, mix:accessControlled
+- tShare:author (string)
+- tShare:name (string)
+- tShare:language (string)
+- tShare:title (String)
+- tShare:description (String)
+- tShare:keywords (string) multiple
+- tShare:categories (reference) multiple
++ tShare:content (tShare:resource) primary
+
+[tShare:folder] > nt:folder, mix:referenceable, mix:lockable, mix:accessControlled
+- tShare:author (string)
+- tShare:name (string)
+- tShare:description (String)
+- tShare:keywords (string) multiple
+- tShare:categories (reference) multiple
+
+[tShare:mail] > nt:folder, mix:referenceable, mix:accessControlled
+- tShare:size (long)
+- tShare:author (string)
+- tShare:from (string)
+- tShare:reply (string) multiple
+- tShare:to (string) multiple
+- tShare:cc (string) multiple
+- tShare:bcc (string) multiple
+- tShare:sentDate (date)
+- tShare:receivedDate (date)
+- tShare:subject (string)
+- tShare:content (string)
+- tShare:mimeType (string)
+- tShare:keywords (string) multiple
+- tShare:categories (reference) multiple
++ * (tShare:document)
+
+[tShare:sysConfig]
+- tShare:uuid (string)
+- tShare:version (string)
