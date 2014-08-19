@@ -1,0 +1,120 @@
+/**
+ *  openkm, Open Document Management System (http://www.openkm.com)
+ *  Copyright (c) 2006-2013  Paco Avila & Josep Llort
+ *
+ *  No bytes were intentionally harmed during the development of this application.
+ *
+ *  This program is free software; you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation; either version 2 of the License, or
+ *  (at your option) any later version.
+ *  
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License along
+ *  with this program; if not, write to the Free Software Foundation, Inc.,
+ *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ */
+
+package com.ikon.module.db.base;
+
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.Set;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.ikon.core.Config;
+import com.ikon.core.DatabaseException;
+import com.ikon.core.PathNotFoundException;
+import com.ikon.dao.NodeBaseDAO;
+import com.ikon.dao.bean.NodeBase;
+import com.ikon.module.common.CommonNotificationModule;
+import com.ikon.module.db.DbAuthModule;
+
+public class BaseNotificationModule {
+	private static Logger log = LoggerFactory.getLogger(BaseNotificationModule.class);
+	
+	/**
+	 * Check for user subscriptions and send an notification
+	 * 
+	 * @param node Node modified (Document or Folder)
+	 * @param user User who generated the modification event
+	 * @param eventType Type of modification event
+	 */
+	public static void checkSubscriptions(NodeBase node, String user, String eventType, String comment) {
+		log.debug("checkSubscriptions({}, {}, {}, {})", new Object[] { node, user, eventType, comment });
+		Set<String> users = new HashSet<String>();
+		Set<String> mails = new HashSet<String>();
+		
+		try {
+			users = checkSubscriptionsHelper(node.getUuid());
+		} catch (Exception e) {
+			log.error(e.getMessage(), e);
+		}
+		
+		/**
+		 * Mail notification
+		 */
+		try {
+			for (String userId : users) {
+				String mail = new DbAuthModule().getMail(null, userId);
+				
+				if (mail != null && !mail.isEmpty()) {
+					mails.add(mail);
+				}
+			}
+			
+			if (!mails.isEmpty()) {
+				String path = NodeBaseDAO.getInstance().getPathFromUuid(node.getUuid());
+				CommonNotificationModule.sendMailSubscription(user, path, eventType, comment, mails);
+			}
+		} catch (Exception e) {
+			log.error(e.getMessage(), e);
+		}
+		
+		/**
+		 * Twitter notification
+		 */
+		try {
+			if (users != null && !users.isEmpty() && !Config.SUBSCRIPTION_TWITTER_USER.equals("")
+					&& !Config.SUBSCRIPTION_TWITTER_PASSWORD.equals("")) {
+				String path = NodeBaseDAO.getInstance().getPathFromUuid(node.getUuid());
+				CommonNotificationModule.sendTwitterSubscription(user, path, eventType, comment, users);
+			}
+		} catch (Exception e) {
+			log.error(e.getMessage(), e);
+		}
+		
+		log.debug("checkSubscriptions: void");
+	}
+	
+	/**
+	 * Check for subscriptions recursively
+	 */
+	private static Set<String> checkSubscriptionsHelper(String uuid) throws PathNotFoundException, DatabaseException {
+		log.debug("checkSubscriptionsHelper: {}", uuid);
+		Set<String> subscriptors = NodeBaseDAO.getInstance().getSubscriptors(uuid);
+		
+		// An user shouldn't be notified twice
+		String parentUuid = NodeBaseDAO.getInstance().getParentUuid(uuid);
+		
+		if (!Config.ROOT_NODE_UUID.equals(parentUuid)) {
+			Set<String> tmp = checkSubscriptionsHelper(parentUuid);
+			
+			for (Iterator<String> it = tmp.iterator(); it.hasNext();) {
+				String usr = it.next();
+				
+				if (!subscriptors.contains(usr)) {
+					subscriptors.add(usr);
+				}
+			}
+		}
+		
+		return subscriptors;
+	}
+}
